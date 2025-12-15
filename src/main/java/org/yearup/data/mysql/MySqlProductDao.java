@@ -43,6 +43,7 @@ public class MySqlProductDao extends MySqlDaoBase implements ProductDao
             statement.setString(5, subCategory);
             statement.setString(6, subCategory);
 
+
             ResultSet row = statement.executeQuery();
 
             while (row.next())
