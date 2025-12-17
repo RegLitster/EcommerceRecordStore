@@ -56,10 +56,9 @@ public class ShoppingCartController {
 
             if (item == null) {
                 shoppingCartDao.addItem(userId, productId, 1);
+            } else {
+                shoppingCartDao.updateQuantity(userId,productId, item.getQuantity() + 1);
             }
-            assert item != null;
-            shoppingCartDao.updateQuantity(userId,productId,item.getQuantity() + 1);
-
         } catch (Exception e) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
@@ -67,15 +66,59 @@ public class ShoppingCartController {
             );
         }
     }
-    // https://localhost:8080/cart/products/15 (15 is the productId to be added
 
+    @PutMapping("/products/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateProductQuantity(
+            @PathVariable int productId,
+            @RequestBody ShoppingCartItem cartItem,
+            Principal principal) {
 
-    // add a PUT method to update an existing product in the cart - the url should be
-    // https://localhost:8080/cart/products/15 (15 is the productId to be updated)
-    // the BODY should be a ShoppingCartItem - quantity is the only value that will be updated
+        try {
+            String userName = principal.getName();
+            User user = userDao.getByUserName(userName);
+            int userId = user.getId();
 
+            ShoppingCartItem existingItem =
+                    shoppingCartDao.getItem(userId, productId);
 
-    // add a DELETE method to clear all products from the current users cart
-    // https://localhost:8080/cart
+            if (existingItem == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Product not found in cart."
+                );
+            }
+
+            shoppingCartDao.updateQuantity(
+                    userId,
+                    productId,
+                    cartItem.getQuantity()
+            );
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unable to update cart item."
+            );
+        }
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void clearCart(Principal principal) {
+        try {
+            String userName = principal.getName();
+            User user = userDao.getByUserName(userName);
+            int userId = user.getId();
+
+            shoppingCartDao.clearCart(userId);
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unable to clear cart."
+            );
+        }
+    }
 
 }
