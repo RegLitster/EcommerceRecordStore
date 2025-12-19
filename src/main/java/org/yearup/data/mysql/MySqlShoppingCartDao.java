@@ -54,7 +54,7 @@ public class MySqlShoppingCartDao extends MySqlDaoBase implements ShoppingCartDa
 
 
     @Override
-    public ShoppingCartItem getItem(int userId, int productId) {
+    public Integer getItemQuantity(int userId, int productId) {
         String sql = """
                     SELECT quantity
                     FROM shopping_cart
@@ -67,11 +67,8 @@ public class MySqlShoppingCartDao extends MySqlDaoBase implements ShoppingCartDa
             statement.setInt(2, productId);
 
             ResultSet row = statement.executeQuery();
-
             if (row.next()) {
-                ShoppingCartItem item = new ShoppingCartItem();
-                item.setQuantity(row.getInt("quantity"));
-                return item;
+                return row.getInt("quantity");
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);

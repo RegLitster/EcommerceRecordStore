@@ -8,117 +8,160 @@ import org.yearup.data.ProductDao;
 import org.yearup.data.ShoppingCartDao;
 import org.yearup.data.UserDao;
 import org.yearup.models.ShoppingCart;
-import org.yearup.models.ShoppingCartItem;
 import org.yearup.models.User;
 
 import java.security.Principal;
-
 
 @RestController
 @RequestMapping("/cart")
 @PreAuthorize("isAuthenticated()")
 public class ShoppingCartController {
-    // a shopping cart requires
-    private ShoppingCartDao shoppingCartDao;
-    private UserDao userDao;
-    private ProductDao productDao;
 
-    public ShoppingCartController(ShoppingCartDao shoppingCartDao, UserDao userDao, ProductDao productDao) {
+    private final ShoppingCartDao shoppingCartDao;
+    private final UserDao userDao;
+    private final ProductDao productDao;
+
+    public ShoppingCartController(ShoppingCartDao shoppingCartDao,
+                                  UserDao userDao,
+                                  ProductDao productDao) {
         this.shoppingCartDao = shoppingCartDao;
         this.userDao = userDao;
         this.productDao = productDao;
     }
 
+    @GetMapping
     public ShoppingCart getCart(Principal principal) {
-        try {
-            // get the currently logged in username
-            String userName = principal.getName();
-            // find database user by userId
-            User user = userDao.getByUserName(userName);
-            int userId = user.getId();
 
+        String username = principal.getName();
+        User user = userDao.getByUserName(username);
 
-            return shoppingCartDao.getByUserId(userId);
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Oops... our bad.");
+        if (user == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User not found."
+            );
         }
+
+        return shoppingCartDao.getByUserId(user.getId());
     }
 
     @PostMapping("/products/{productId}")
     @ResponseStatus(HttpStatus.CREATED)
-    public void addProductToCart(@PathVariable int productId, Principal principal) {
-        try {
-            String userName = principal.getName();
-            User user = userDao.getByUserName(userName);
-            int userId = user.getId();
+    public void addProductToCart(@PathVariable int productId,
+                                 Principal principal) {
 
-            ShoppingCartItem item = shoppingCartDao.getItem(userId, productId);
+        String username = principal.getName();
+        User user = userDao.getByUserName(username);
 
-            if (item == null) {
-                shoppingCartDao.addItem(userId, productId, 1);
-            } else {
-                shoppingCartDao.updateQuantity(userId,productId, item.getQuantity() + 1);
-            }
-        } catch (Exception e) {
+        if (user == null) {
             throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Unable to add product to cart."
+                    HttpStatus.UNAUTHORIZED,
+                    "User not found."
             );
+        }
+
+
+        if (productDao.getById(productId) == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Product not found."
+            );
+        }
+
+        int userId = user.getId();
+
+        Integer quantity =
+                shoppingCartDao.getItemQuantity(userId, productId);
+
+        if (quantity == null) {
+            shoppingCartDao.addItem(userId, productId, 1);
+        } else {
+            shoppingCartDao.updateQuantity(userId, productId, quantity + 1);
         }
     }
 
     @PutMapping("/products/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateProductQuantity(
-            @PathVariable int productId,
-            @RequestBody ShoppingCartItem cartItem,
-            Principal principal) {
+    public void updateProductQuantity(@PathVariable int productId,
+                                      @RequestBody int quantity,
+                                      Principal principal) {
 
-        try {
-            String userName = principal.getName();
-            User user = userDao.getByUserName(userName);
-            int userId = user.getId();
-
-            ShoppingCartItem existingItem =
-                    shoppingCartDao.getItem(userId, productId);
-
-            if (existingItem == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Product not found in cart."
-                );
-            }
-
-            shoppingCartDao.updateQuantity(
-                    userId,
-                    productId,
-                    cartItem.getQuantity()
-            );
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
+        if (quantity < 1) {
             throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Unable to update cart item."
+                    HttpStatus.BAD_REQUEST,
+                    "Quantity must be at least 1."
             );
         }
+
+        String username = principal.getName();
+        User user = userDao.getByUserName(username);
+
+        if (user == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User not found."
+            );
+        }
+
+        int userId = user.getId();
+
+        Integer existingQuantity =
+                shoppingCartDao.getItemQuantity(userId, productId);
+
+        if (existingQuantity == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Product not found in cart."
+            );
+        }
+
+        shoppingCartDao.updateQuantity(userId, productId, quantity);
+    }
+
+    @DeleteMapping("/products/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeProduct(@PathVariable int productId,
+                              Principal principal) {
+
+        String username = principal.getName();
+        User user = userDao.getByUserName(username);
+
+        if (user == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User not found."
+            );
+        }
+
+        int userId = user.getId();
+
+        Integer quantity =
+                shoppingCartDao.getItemQuantity(userId, productId);
+
+        if (quantity == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Product not found in cart."
+            );
+        }
+
+        shoppingCartDao.updateQuantity(userId, productId, 0);
     }
 
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void clearCart(Principal principal) {
-        try {
-            String userName = principal.getName();
-            User user = userDao.getByUserName(userName);
-            int userId = user.getId();
 
-            shoppingCartDao.clearCart(userId);
-        } catch (Exception e) {
+        String username = principal.getName();
+        User user = userDao.getByUserName(username);
+
+        if (user == null) {
             throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Unable to clear cart."
+                    HttpStatus.UNAUTHORIZED,
+                    "User not found."
             );
         }
-    }
 
+        shoppingCartDao.clearCart(user.getId());
+    }
 }

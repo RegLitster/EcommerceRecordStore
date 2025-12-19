@@ -41,7 +41,7 @@ public class ShoppingCartItem
         this.discountPercent = discountPercent;
     }
 
-    @JsonIgnore
+
     public int getProductId()
     {
         return this.product.getProductId();
